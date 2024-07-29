@@ -13,6 +13,7 @@
   <ItemGroup>
     <PackageReference Include="AssetsTools.NET" Version="2.0.9" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+    <PackageReference Include="pythonnet" Version="3.0.3" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="AssetAssistant">
@@ -31,5 +32,8 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Python\" />
   </ItemGroup>
 </Project>

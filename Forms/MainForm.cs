@@ -1,4 +1,5 @@
 ﻿using ImpostersOrdeal.Forms;
+using ImpostersOrdeal;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -12,6 +13,9 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using static ImpostersOrdeal.Distributions;
 using static ImpostersOrdeal.GlobalData;
+using Python.Runtime;
+using PyRuntime = Python.Runtime.Runtime;
+using System.IO;
 
 namespace ImpostersOrdeal
 {
@@ -224,6 +228,28 @@ namespace ImpostersOrdeal
             this.rsc = rsc;
 
             comboBox1.SelectedIndex = 0;
+        }
+
+        static PyObject RunScript(string scriptName, string relativeModulePath)
+        {
+            var pathList = PlatformUtils.GetPathList();
+            PyRuntime.PythonDLL = PlatformUtils.FindPythonLibPath(pathList);
+            PythonEngine.Initialize();
+
+            using (Py.GIL())
+            {
+                string currentDirectory = Directory.GetCurrentDirectory();
+                Console.Write(currentDirectory);
+                string modulePath = Path.Combine(currentDirectory, relativeModulePath);
+
+                dynamic sys = Py.Import("sys");
+
+                sys.path.append(modulePath);
+
+                dynamic pythonScript = Py.Import(scriptName);
+                PyObject result = pythonScript.InvokeMethod("say_hello");
+                return result;
+            }
         }
 
         /// <summary>
@@ -506,6 +532,12 @@ namespace ImpostersOrdeal
             BattleTowerPokemonForm tef = new();
             tef.Show();
             gameData.SetModified(GameDataSet.DataField.Trainers);
+        }
+
+        private void Button36_Click(object sender, EventArgs e)
+        {
+            PyObject result = RunScript("basic_python", @"../../../Python");
+            label10.Text = result.ToString();
         }
     }
 }
