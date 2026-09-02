@@ -117,6 +117,8 @@ namespace ImpostersOrdeal
                 RandomizeScriptedPokemon(m.itemDistributionControl20.Get());
             if (m.checkBox54.Checked)
                 RandomizeScriptedItems(m.itemDistributionControl21.Get());
+            if (m.checkBox64.Checked)
+                RandomizeHiddenItems(m.itemDistributionControl22.Get());
             if (m.checkBox55.Checked)
                 RandomizeText(m.checkBox56.Checked);
 
@@ -355,6 +357,20 @@ namespace ImpostersOrdeal
                             command.args[0].data = distribution.Next((int)command.args[0].data);
                         }
 
+            gameData.SetModified(GameDataSet.DataField.EvScripts);
+        }
+
+        private void RandomizeHiddenItems(IDistribution distribution)
+        {
+            foreach (EvScript evScript in gameData.evScripts)
+                if (evScript.mName == "hide_item")
+                foreach (Script script in evScript.scripts)
+                    foreach (Command command in script.commands)
+                        if (command.cmdType == 60 && command.args[0].argType == 2 && (int)command.args[0].data == 234 && gameData.items[(int)command.args[1].data].IsPurchasable())
+                        {
+                            command.args[1].argType = 1;
+                            command.args[1].data = distribution.Next((int)command.args[1].data);
+                        }
             gameData.SetModified(GameDataSet.DataField.EvScripts);
         }
 

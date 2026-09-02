@@ -77,6 +77,7 @@ namespace ImpostersOrdeal
             public (IDistribution[], List<string>, int) typeMatchups;
             public (IDistribution[], List<string>, int) scriptedPokemon;
             public (IDistribution[], List<string>, int) scriptedItems;
+            public (IDistribution[], List<string>, int) hiddenItems;
             public double levelCoefficient;
 
             public IDistribution evolutionLogicTypingCorrelationDistribution;
@@ -219,6 +220,7 @@ namespace ImpostersOrdeal
             itemDistributionControl5.Initialize(rsc.typeMatchups);
             itemDistributionControl20.Initialize(rsc.scriptedPokemon);
             itemDistributionControl21.Initialize(rsc.scriptedItems);
+            itemDistributionControl22.Initialize(rsc.hiddenItems);
             numericUpDown8.Value = (decimal)rsc.levelCoefficient;
             this.rsc = rsc;
 

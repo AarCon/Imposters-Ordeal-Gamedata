@@ -506,7 +506,15 @@ namespace ImpostersOrdeal
             }
             try
             {
+                // Ensure the AppContext switch is set even if static constructor didn't work
+                AppContext.SetSwitch("System.Runtime.Serialization.EnableUnsafeBinaryFormatterSerialization", true);
                 return AssetBundleDownloadManifest.Load(fileArchive[dprBinPath].fileLocation);
+            }
+            catch (System.PlatformNotSupportedException ex) when (ex.Message.Contains("BinaryFormatter"))
+            {
+                MessageBox.Show("Unable to load Dpr.bin file. This is a .NET 9 compatibility issue with the SmartPoint.AssetAssistant library that requires BinaryFormatter, which has been disabled in .NET 9 for security reasons.\n\nPlease ensure the runtime configuration is properly set.",
+                    "BinaryFormatter Not Supported", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return null;
             }
             catch (IOException)
             {

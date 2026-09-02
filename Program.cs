@@ -9,6 +9,12 @@ namespace ImpostersOrdeal
 {
     static class Program
     {
+        // Static constructor runs before Main() - ensures AppContext switch is set first
+        static Program()
+        {
+            AppContext.SetSwitch("System.Runtime.Serialization.EnableUnsafeBinaryFormatterSerialization", true);
+        }
+
         /// <summary>
         ///  The main entry point for the application.
         /// </summary>

@@ -436,6 +436,10 @@ namespace ImpostersOrdeal
             //Scripted Items
             randomizerSetupConfig.scriptedItems = GetItemDistributionConfig(commands.Where(c => c.cmdType == 187 && c.args[0].argType == 1 && gameData.items[(int)c.args[0].data].IsPurchasable()).ToList(), c => (int)c.args[0].data, gameData.items.Select(o => (INamedEntity)o).ToList());
 
+            //Scripted Hidden Items
+            List<Command> hiddenItemCommands = gameData.evScripts.Where(e => e.mName == "hide_item").SelectMany(e => e.scripts.SelectMany(s => s.commands)).ToList();
+            randomizerSetupConfig.hiddenItems = GetItemDistributionConfig(hiddenItemCommands.Where(c => c.cmdType == 60 && c.args[0].argType == 2 && gameData.items[(int)c.args[1].data].IsPurchasable()).ToList(), c => (int)c.args[1].data, gameData.items.Select(o => (INamedEntity)o).ToList());
+
             //Type Matchups
             instances = new int[4];
             int typeCount = 18;
