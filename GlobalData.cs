@@ -250,6 +250,164 @@ namespace ImpostersOrdeal
             None = -1
         }
 
+        public class MsbtEnums
+        {
+            public enum WordDataPatternID
+            {
+                Str = 0,
+                FontTag = 1,
+                ColorTag = 2,
+                SizeTag = 3,
+                CtrlTag = 4,
+                WordTag = 5,
+                SpriteFont = 6,
+                Event = 7
+            }
+
+            public enum MsgEventID
+            {
+                NONE = 0,
+                NewLine = 1,
+                Wait = 2,
+                ScrollPage = 3,
+                ScrollLine = 4,
+                CallBack = 5,
+                GuidIcon = 6,
+                End = 7
+            }
+
+            public enum GroupTagID
+            {
+                System = 0,
+                Name = 1,
+                Digit = 2,
+                Grm = 16,
+                EN = 19,
+                FR = 20,
+                IT = 21,
+                DE = 22,
+                ES = 23,
+                Kor = 25,
+                SC = 26,
+                Character1 = 50,
+                Character2 = 51,
+                Ctrl1 = 189,
+                Ctrl2 = 190
+            }
+
+            public enum TagPatternID
+            {
+                Word = 0,
+                Digit = 1,
+                Conversion = 2,
+                RichText = 3,
+                Grammar = 4,
+                GrammarWord = 5,
+                ControlDesign = 6,
+                ControlMessage = 7,
+                SpriteFont = 8
+            }
+
+            public enum ForceGrmTagID
+            {
+                NONE = 0,
+                Singular = 1,
+                Plural = 2,
+                Masculine = 3,
+                InitialCap = 4
+            }
+
+            public enum NameTagID
+            {
+                Default = 0,
+                PokemonName = 1,
+                PokemonNickname = 2,
+                PokeType = 3,
+                PokedexType = 4,
+                Place = 5,
+                Ability = 6,
+                Move = 7,
+                Nature = 8,
+                Item = 9,
+                ItemClassified = 10,
+                ItemAcc = 11,
+                PokemonNicknameTwo = 12,
+                Status = 13,
+                TrainerType = 14,
+                Poffin = 15,
+                ItemAccClassified = 16,
+                GoodsName = 17,
+                Pocket = 18,
+                ItemText = 19,
+                TrainerNameField = 20,
+                Poketch = 21,
+                UgItem = 22,
+                BagPocketIcon = 23,
+                PocketIcon = 24,
+                Word = 25,
+                Question = 26,
+                Answer = 27,
+                Accessory = 28,
+                Gym = 29,
+                TimeZone = 30,
+                Contest = 31,
+                ContestRank = 32,
+                PokeGender = 33,
+                PokeLevel = 34,
+                GroupName = 35,
+                Location = 36,
+                Area = 37,
+                Ribbon = 38,
+                UndergroundItemDefArt = 39,
+                UndergroundItemIndefArt = 40,
+                Taste = 41,
+                SerialNumber = 42,
+                FreeWord = 43,
+                Undefined = 44,
+                PlayerNickname = 45,
+                PlayerNicknamePrefix = 46,
+                TrimmianFormName = 47,
+                TrainerTypeAndName = 48,
+                HairStyle_Name = 49,
+                Bangs_Name = 50,
+                HairColor_Name = 51,
+                TournamentName = 52,
+                FullPowerMove = 53,
+                BattleState = 54,
+                FlySpotName = 55,
+                Record_Name = 56,
+                BattleTeam = 57,
+                BoxName = 58,
+                KisekaeItem = 59,
+                KisekaeItemColor = 60,
+                BGM = 61,
+                Uniformnumber = 62,
+                BirthdayM = 63,
+                BirthdayD = 64,
+                TrainerNameUpperCase = 65,
+                PokemonNicknameUpperCase = 66,
+                CookName = 67,
+                Classname = 68,
+                AnotherName = 69,
+                CompanyName = 70,
+                PlaceIndirect = 71,
+                FormName = 72,
+                RegurationName = 73,
+                Memory_Place = 74,
+                Memory_Feeling = 75,
+                Memory_Rank = 76,
+                Sticker = 77,
+                ParkItem = 78,
+                Kinomi = 79,
+                UgItemAcc = 80,
+                UgItemClassified = 81,
+                UgItemAccClassified = 82,
+                PoffinAcc = 83,
+                StyleName = 84,
+                BattleRule = 85
+            }
+        }
+
         public static void Initialize()
         {
             randomizerPaths[PathEnum.BattleMasterdatas] = "romfs\\Data\\StreamingAssets\\AssetAssistant\\Battle\\battle_masterdatas";

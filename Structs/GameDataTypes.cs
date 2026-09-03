@@ -695,11 +695,26 @@ namespace ImpostersOrdeal
             public void SetStrings(List<LabelData> strings)
             {
                 for (int i = labelDatas.Count - 1; i >= 0; i--)
+                {
                     if (labelDatas[i].IsValidString())
                     {
-                        labelDatas[i].wordDatas = strings[^1].wordDatas;
+                        labelDatas[i].wordDatas = new();
+
+                        foreach (WordData wd in strings[^1].wordDatas)
+                            labelDatas[i].wordDatas.Add(
+                                (WordData)wd.Clone()
+                            );
+
+                        labelDatas[i].tagDatas = new();
+
+                        foreach (TagData td in strings[^1].tagDatas)
+                            labelDatas[i].tagDatas.Add(
+                                (TagData)td.Clone()
+                            );
+
                         strings.RemoveAt(strings.Count - 1);
                     }
+                }
             }
         }
         public class TagData : ICloneable
@@ -710,7 +725,7 @@ namespace ImpostersOrdeal
             public int tagPatternID;
             public int forceArticle;
             public int tagParameter;
-            public List<string> tagWordArray;
+            public List<string> tagWordArray = new();
             public int forceGrmID;
 
             public object Clone()
@@ -763,9 +778,18 @@ namespace ImpostersOrdeal
             {
                 if (GetString().Length < 1)
                     return false;
+
                 for (int i = 0; i < wordDatas.Count; i++)
-                    if (wordDatas[i].tagIndex >= 0 || wordDatas[i].eventID == 5)
+                {
+                    WordData wd = wordDatas[i];
+
+                    if (wd.IsWordTag())
                         return false;
+
+                    if (wd.eventID == (int)MsbtEnums.MsgEventID.CallBack)
+                        return false;
+                }
+
                 return true;
             }
 
@@ -780,56 +804,271 @@ namespace ImpostersOrdeal
             public string GetMacroString()
             {
                 string s = "";
+
                 foreach (WordData wd in wordDatas)
-                    s += wd.str + wd.GetMacro();
+                {
+                    if (wd.IsWordTag())
+                    {
+                        if (wd.tagIndex < 0 || wd.tagIndex >= tagDatas.Count)
+                        {
+                            throw new InvalidOperationException(
+                                $"WordData contains invalid tagIndex {wd.tagIndex}"
+                            );
+                        }
+
+                        s += wd.str + wd.GetMacro(tagDatas[wd.tagIndex]);
+                    }
+                    else
+                    {
+                        s += wd.str + wd.GetMacro();
+                    }
+                }
+
                 return s;
             }
 
             public void SetMacroString(string s)
             {
+                tagDatas.Clear();
+
                 List<WordData> newWordDatas = new();
-                int i = 0;
+
                 while (s.Length > 0)
                 {
-                    Match m = Regex.Match(s, @"\A[^\\]*\\");
-                    WordData wd = null;
+                    // ============================================================
+                    // HTML-style tag
+                    // ============================================================
 
-                    if (i < wordDatas.Count)
-                        wd = wordDatas[i];
-                    else
-                        wd = new()
+                    Match htmlTagMatch = Regex.Match(
+                        s,
+                        @"\A<[^>]+>"
+                    );
+
+                    if (htmlTagMatch.Success)
+                    {
+                        string tag = htmlTagMatch.Value;
+
+                        string tagName = tag
+                            .Trim('<', '>')
+                            .TrimStart('/')
+                            .Split(' ', '=', '\t')[0];
+
+                        int patternID;
+
+                        if (tagName.StartsWith(
+                                "color",
+                                StringComparison.OrdinalIgnoreCase))
                         {
-                            patternID = 7,
+                            patternID = (int)MsbtEnums.WordDataPatternID.ColorTag;
+                        }
+                        else if (tagName.StartsWith(
+                                    "size",
+                                    StringComparison.OrdinalIgnoreCase))
+                        {
+                            patternID = (int)MsbtEnums.WordDataPatternID.SizeTag;
+                        }
+                        else if (tagName.StartsWith(
+                                    "font",
+                                    StringComparison.OrdinalIgnoreCase))
+                        {
+                            patternID = (int)MsbtEnums.WordDataPatternID.FontTag;
+                        }
+                        else
+                        {
+                            patternID = (int)MsbtEnums.WordDataPatternID.CtrlTag;
+                        }
+
+                        newWordDatas.Add(new WordData
+                        {
+                            patternID = patternID,
+                            eventID = (int)MsbtEnums.MsgEventID.NONE,
                             tagIndex = -1,
-                        };
+                            tagValue = 0,
+                            str = tag,
+                            strWidth = -1f
+                        });
+
+                        s = s[tag.Length..];
+
+                        continue;
+                    }
+
+                    // ============================================================
+                    // MSBT WordTag
+                    //
+                    // {tagIndex}
+                    // {tagIndex,groupID,tagID}
+                    // {tagIndex,groupID,tagID,tagParameter}
+                    // ============================================================
+
+                    if (s[0] == '{')
+                    {
+                        int closeIndex = s.IndexOf('}');
+
+                        if (closeIndex < 0)
+                        {
+                            throw new ArgumentException(
+                                "Unterminated tag: " + s
+                            );
+                        }
+
+                        string tagContents = s.Substring(
+                            1,
+                            closeIndex - 1
+                        );
+
+                        string[] args = tagContents
+                            .Replace(" ", "")
+                            .Split(',');
+
+                        if (args.Length == 0 ||
+                            !int.TryParse(args[0], out int tagIndex))
+                        {
+                            throw new ArgumentException(
+                                "Invalid tag: {" + tagContents + "}"
+                            );
+                        }
+
+                        int groupID = args.Length > 1
+                            ? int.Parse(args[1])
+                            : (int)MsbtEnums.GroupTagID.Name;
+
+                        int tagID = args.Length > 2
+                            ? int.Parse(args[2])
+                            : (int)MsbtEnums.NameTagID.Default;
+
+                        int tagParam = args.Length > 3
+                            ? int.Parse(args[3])
+                            : 0;
+
+                        int tagPatternID =
+                            groupID == (int)MsbtEnums.GroupTagID.Digit
+                                ? (int)MsbtEnums.TagPatternID.Digit
+                                : (int)MsbtEnums.TagPatternID.Word;
+
+                        // This is the index into LabelData.tagDatas.
+                        int tagDataIndex = tagDatas.Count;
+
+                        tagDatas.Add(new TagData
+                        {
+                            tagIndex = tagIndex,
+                            groupID = groupID,
+                            tagID = tagID,
+                            tagPatternID = tagPatternID,
+                            forceArticle = 0,
+                            tagParameter = tagParam,
+                            tagWordArray = new(),
+                            forceGrmID = (int)MsbtEnums.ForceGrmTagID.NONE
+                        });
+
+                        newWordDatas.Add(new WordData
+                        {
+                            patternID = (int)MsbtEnums.WordDataPatternID.WordTag,
+                            eventID = (int)MsbtEnums.MsgEventID.NONE,
+
+                            // IMPORTANT:
+                            // This points to tagDatas[tagDataIndex],
+                            // NOT the tag's actual tagIndex.
+                            tagIndex = tagDataIndex,
+
+                            tagValue = 0,
+                            str = "",
+                            strWidth = -1f
+                        });
+
+                        s = s[(closeIndex + 1)..];
+
+                        continue;
+                    }
+
+                    // ============================================================
+                    // Escape sequence
+                    // ============================================================
+
+                    Match m = Regex.Match(
+                        s,
+                        @"\A[^\\]*\\"
+                    );
 
                     if (m.Success)
                     {
-                        char c = s.ToCharArray()[m.Value.Length];
-                        wd.eventID = c switch
+                        int eventCharIndex = m.Value.Length;
+                        if (eventCharIndex >= s.Length)
                         {
-                            '0' => 0,
-                            'n' => 1,
-                            'w' => 2,
-                            'r' => 3,
-                            'f' => 4,
-                            'e' => 5,
-                            _ => throw new ArgumentException("Unknown macro: \\" + c),
-                        };
-                        wd.str = s[..(m.Value.Length - 1)];
-                        s = s[(m.Value.Length + 1)..];
-                    }
-                    else
-                    {
-                        wd.eventID = 7;
-                        wd.str = s;
-                        s = "";
+                            throw new ArgumentException(
+                                "Incomplete macro at end of string."
+                            );
+                        }
+
+                        char c = s[eventCharIndex];
+
+                        if (c == '0' || 
+                            c == 'n' ||
+                            c == 'w' ||
+                            c == 'r' ||
+                            c == 'f' ||
+                            c == 'e')
+                        {
+                            // Valid macro
+                            WordData wd = new()
+                            {
+                                patternID = (int)MsbtEnums.WordDataPatternID.Event,
+                                tagIndex = -1
+                            };
+
+                            wd.eventID = c switch
+                            {
+                                '0' => (int)MsbtEnums.MsgEventID.NONE,
+                                'n' => (int)MsbtEnums.MsgEventID.NewLine,
+                                'w' => (int)MsbtEnums.MsgEventID.Wait,
+                                'r' => (int)MsbtEnums.MsgEventID.ScrollPage,
+                                'f' => (int)MsbtEnums.MsgEventID.ScrollLine,
+                                'e' => (int)MsbtEnums.MsgEventID.CallBack,
+
+                                _ => throw new ArgumentException(
+                                    "Unknown macro: \\" + c
+                                ),
+                            };
+
+                            wd.str = s[..(m.Value.Length - 1)];
+
+                            wd.strWidth = WordData.CalculateStringWidth(
+                                wd.str,
+                                out _);
+
+                            newWordDatas.Add(wd);
+
+                            s = s[(eventCharIndex + 1)..];
+
+                            continue;
+                        }
                     }
 
-                    wd.strWidth = wd.str.ToCharArray().Select(c => WordData.charWidths.TryGetValue(c, out float f) ? f : 0f).Sum();
-                    i++;
+                    // ============================================================
+                    // Plain text
+                    // ============================================================
+
+                    WordData textData = new()
+                    {
+                        patternID = (int)MsbtEnums.WordDataPatternID.Str,
+                        eventID = (int)MsbtEnums.MsgEventID.End,
+                        tagIndex = -1,
+                        tagValue = 0,
+                        str = s
+                    };
+
+                    textData.strWidth = WordData.CalculateStringWidth(
+                        textData.str,
+                        out _);
+
+                    newWordDatas.Add(textData);
+
+                    s = "";
                 }
+
+                wordDatas = newWordDatas;
             }
+
         }
 
         public class WordData : ICloneable
@@ -843,108 +1082,329 @@ namespace ImpostersOrdeal
 
             public static readonly Dictionary<char, float> charWidths = new()
             {
+                { ' ', 8.671875f },
+                { '\u00A0', 8.671875f }, // Non-breaking space
+
                 { 'A', 20.125f },
+                { 'À', 20.125f },
+                { 'Á', 20.125f },
+                { 'Â', 20.125f },
+                { 'Ã', 20.125f },
+                { 'Ä', 20.125f },
+                { 'Å', 20.125f },
+                { 'Æ', 20.125f },
                 { 'B', 17.3125f },
                 { 'C', 20.25f },
+                { 'Ç', 20.25f },
                 { 'D', 22.109375f },
                 { 'E', 15.84375f },
+                { 'È', 15.84375f },
+                { 'É', 15.84375f },
+                { 'Ê', 15.84375f },
+                { 'Ë', 15.84375f },
                 { 'F', 16.15625f },
                 { 'G', 23.328125f },
                 { 'H', 22.015625f },
                 { 'I', 8.390625f },
+                { 'Ì', 8.390625f },
+                { 'Í', 8.390625f },
+                { 'Î', 8.390625f },
+                { 'Ï', 8.390625f },
                 { 'J', 12.640625f },
                 { 'K', 19.046875f },
                 { 'L', 14.96875f },
                 { 'M', 25.984375f },
                 { 'N', 21.625f },
+                { 'Ñ', 21.625f },
                 { 'O', 24.390625f },
+                { 'Ò', 24.390625f },
+                { 'Ó', 24.390625f },
+                { 'Ô', 24.390625f },
+                { 'Õ', 24.390625f },
+                { 'Ö', 24.390625f },
+                { 'Ø', 24.390625f },
                 { 'P', 16.28125f },
                 { 'Q', 24.390625f },
                 { 'R', 17.625f },
                 { 'S', 15.453125f },
                 { 'T', 17.125f },
                 { 'U', 21.34375f },
+                { 'Ù', 21.34375f },
+                { 'Ú', 21.34375f },
+                { 'Û', 21.34375f },
+                { 'Ü', 21.34375f },
                 { 'V', 20.0f },
                 { 'W', 28.640625f },
                 { 'X', 20.28125f },
                 { 'Y', 19.328125f },
+                { 'Ý', 19.328125f },
                 { 'Z', 18.171875f },
+
                 { 'a', 15.296875f },
+                { 'à', 15.296875f },
+                { 'á', 15.296875f },
+                { 'â', 15.296875f },
+                { 'ã', 15.296875f },
+                { 'ä', 15.296875f },
+                { 'å', 15.296875f },
+                { 'æ', 15.296875f },
                 { 'b', 17.25f },
                 { 'c', 13.953125f },
+                { 'ç', 13.953125f },
                 { 'd', 17.28125f },
                 { 'e', 15.96875f },
+                { 'è', 15.96875f },
                 { 'é', 15.96875f },
+                { 'ê', 15.96875f },
+                { 'ë', 15.96875f },
                 { 'f', 9.765625f },
                 { 'g', 16.1875f },
                 { 'h', 15.578125f },
                 { 'i', 7.609375f },
+                { 'ì', 7.609375f },
+                { 'í', 7.609375f },
+                { 'î', 7.609375f },
+                { 'ï', 7.609375f },
                 { 'j', 7.328125f },
                 { 'k', 14.8125f },
                 { 'l', 7.78125f },
                 { 'm', 22.71875f },
                 { 'n', 15.578125f },
+                { 'ñ', 15.578125f },
                 { 'o', 17.15625f },
+                { 'ò', 17.15625f },
+                { 'ó', 17.15625f },
+                { 'ô', 17.15625f },
+                { 'õ', 17.15625f },
+                { 'ö', 17.15625f },
+                { 'ø', 17.15625f },
                 { 'p', 17.25f },
                 { 'q', 17.28125f },
                 { 'r', 9.65625f },
                 { 's', 11.515625f },
                 { 't', 10.046875f },
                 { 'u', 15.578125f },
+                { 'ù', 15.578125f },
+                { 'ú', 15.578125f },
+                { 'û', 15.578125f },
+                { 'ü', 15.578125f },
                 { 'v', 14.078125f },
                 { 'w', 19.8125f },
                 { 'x', 14.46875f },
                 { 'y', 14.375f },
+                { 'ý', 14.375f },
+                { 'ÿ', 14.375f },
                 { 'z', 13.03125f },
-                { '1', 0f },
-                { '2', 0f },
-                { '3', 0f },
-                { '4', 0f },
-                { '5', 0f },
-                { '6', 0f },
-                { '7', 0f },
-                { '8', 0f },
-                { '9', 0f },
-                { '0', 0f },
+                { 'ß', 16.734375f },
+
+                { '1', 13.984375f },
+                { '2', 17.984375f },
+                { '3', 17.984375f },
+                { '4', 17.984375f },
+                { '5', 17.984375f },
+                { '6', 17.984375f },
+                { '7', 17.984375f },
+                { '8', 17.984375f },
+                { '9', 17.984375f },
+                { '0', 17.984375f },
+
+                { '－', 25.593750f },
                 { '-', 11.203125f },
+                { '–', 12.796875f },
+                { '—', 25.593750f },
+                { '―', 25.593750f },
+                { 'ー', 25.593750f },
+                { '_', 12.796875f },
+
+                { '±', 25.593750f },
+                { '+', 16.0625f },
+                { '−', 26.593750f },
+                { '=', 15.906250f },
+                { '%', 23.078125f },
+                { '*', 12.765625f },
+                { '×', 25.593750f },
+                { '/', 12.796875f },
+
+                { '.', 7.906250f },
+                { '·', 7.906250f },
+                { '•', 10.750000f },
+                { '●', 25.593750f },
                 { '!', 7.265625f },
-                { '?', 14.46875f },
+                { '¡', 7.265625f },
+                { '?', 14.468750f },
+                { '¿', 14.468750f },
+
+                { '\'', 6.4609375f },
+                { '"', 10.6640625f },
                 { '“', 13.03125f },
                 { '”', 13.03125f },
-                { ' ', 8.671875f },
+                { '„', 13.03125f },
+                { '«', 15.9375f },
+                { '»', 15.9375f },
+                { '‘', 8.828125f },
+                { '‚', 8.828125f },
                 { ',', 8.828125f },
-                { '.', 7.90625f },
-                { '’', 8.828125f }
+                { '’', 8.828125f },
+
+                { '♀', 25.593750f },
+                { '♂', 25.593750f },
+                { '(', 11.359375f },
+                { ')', 11.359375f },
+                { ':', 10.109375f },
+                { ';', 10.109375f },
+                { '：', 25.593750f },
+                { '&', 19.843750f },
+                { 'ª', 8.953125f },
+                { 'ᵉ', 8.828125f },
+                { 'ō', 17.156250f },
+                { 'Œ', 28.703125f },
+                { 'œ', 27.359375f },
+
+                { '↑', 25.593750f },
+                { '→', 25.593750f },
+                { '←', 25.593750f },
+                { '↓', 25.593750f },
+                { '★', 25.593750f },
+                { '♥', 25.593750f },
+                { '♪', 25.593750f },
+
+                { 'ヒ', 25.593750f },
+                { 'フ', 25.593750f },
+                { 'ヘ', 25.593750f },
+                { 'ホ', 25.593750f },
+                { 'マ', 25.593750f },
+                { 'ミ', 25.593750f },
+                { 'ム', 25.593750f },
+                { 'メ', 25.593750f },
+                { 'モ', 25.593750f },
+                { 'ヤ', 25.593750f },
+                { 'ユ', 25.593750f },
+                { 'ヨ', 25.593750f },
+                { 'ラ', 25.593750f },
+                { 'リ', 25.593750f },
+                { 'ル', 25.593750f },
+                { 'レ', 25.593750f },
+                { 'ロ', 25.593750f },
+                { 'ワ', 25.593750f },
+
+                { '\uE104', 32.000000f },  // ✨
+                { '\uE300', 21.125000f },  // Pokédollar symbol
+                { '\u202F', 4.421875f },   // Narrow no-break space
+                { '\u3000', 25.593750f },  // Ideographic space
             };
+
+            public static float CalculateStringWidth(
+                string inputString,
+                out List<char> missingChars,
+                bool debug = false,
+                bool collectMissing = false)
+            {
+                float total = 0f;
+                missingChars = new List<char>();
+
+                foreach (char originalChar in inputString)
+                {
+                    // Match the Python behavior:
+                    // if char == "'": char = "’"
+                    char c = originalChar == '\'' ? '’' : originalChar;
+
+                    if (charWidths.TryGetValue(c, out float width))
+                    {
+                        total += width;
+                    }
+                    else
+                    {
+                        if (debug)
+                        {
+                            Console.Error.WriteLine(
+                                $"Warning: Character '{c}' not found in charWidths. " +
+                                "Using width of space.");
+                        }
+
+                        if (collectMissing)
+                            missingChars.Add(c);
+
+                        total += charWidths[' '];
+                    }
+                }
+
+                return total;
+            }
 
             public string GetEndChar()
             {
-                return eventID switch
+                return ((MsbtEnums.MsgEventID)eventID) switch
                 {
-                    0 => "", //No marker
-                    1 => "\n", //New line marker
-                    2 => "", //Wait marker
-                    3 => "\n", //New textbox marker
-                    4 => "\n", //Scroll textbox marker
-                    5 => "", //Start/join event marker?
-                    7 => "", //End of message
+                    MsbtEnums.MsgEventID.NONE => "\\0", //No marker
+                    MsbtEnums.MsgEventID.NewLine => "\n", //New line marker
+                    MsbtEnums.MsgEventID.Wait => "", //Wait marker
+                    MsbtEnums.MsgEventID.ScrollPage => "\n", //New textbox marker
+                    MsbtEnums.MsgEventID.ScrollLine => "\n", //Scroll textbox marker
+                    MsbtEnums.MsgEventID.CallBack => "", //Start/join event marker?
+                    MsbtEnums.MsgEventID.GuidIcon => "", //Guid Icon marker
+                    MsbtEnums.MsgEventID.End => "", //End of message
                     _ => "\0", //Unknown
                 };
             }
 
             public string GetMacro()
             {
-                return eventID switch
+                return ((MsbtEnums.MsgEventID)eventID) switch
                 {
-                    0 => "\\0", //No marker
-                    1 => "\\n", //New line marker
-                    2 => "\\w", //Wait marker
-                    3 => "\\r", //New textbox marker
-                    4 => "\\f", //Scroll textbox marker
-                    5 => "\\e", //Start/join event marker?
-                    7 => "", //End of message
-                    _ => "\\0", //Unknown
+                    MsbtEnums.MsgEventID.NONE => "\\0", //No marker
+                    MsbtEnums.MsgEventID.NewLine => "\\n", //New line marker
+                    MsbtEnums.MsgEventID.Wait => "\\w", //Wait marker
+                    MsbtEnums.MsgEventID.ScrollPage => "\\r", //New textbox marker
+                    MsbtEnums.MsgEventID.ScrollLine => "\\f", //Scroll textbox marker
+                    MsbtEnums.MsgEventID.CallBack => "\\e", //Start/join event marker?
+
+                    // GuidIcon doesn't have a macro reprensentation yet
+                    MsbtEnums.MsgEventID.GuidIcon => "",
+
+                    MsbtEnums.MsgEventID.End => "", //End of message
+                    _ => throw new ArgumentException(
+                        $"Unknown event ID: {eventID}"
+                    ),
                 };
+            }
+
+            public string GetMacro(TagData tagData)
+            {
+                if (IsWordTag())
+                {
+                    return "{" +
+                        tagData.tagIndex +
+                        "," +
+                        tagData.groupID +
+                        "," +
+                        tagData.tagID +
+                        "," +
+                        tagData.tagParameter +
+                        "}";
+                }
+
+                if (IsHtmlTag())
+                    return str;
+
+                return GetMacro();
+            }
+
+            public bool IsWordTag()
+            {
+                return patternID == (int)MsbtEnums.WordDataPatternID.WordTag;
+            }
+
+            public bool IsHtmlTag()
+            {
+                return patternID == (int)MsbtEnums.WordDataPatternID.FontTag ||
+                    patternID == (int)MsbtEnums.WordDataPatternID.ColorTag ||
+                    patternID == (int)MsbtEnums.WordDataPatternID.SizeTag ||
+                    patternID == (int)MsbtEnums.WordDataPatternID.CtrlTag;
+            }
+
+            public bool IsString()
+            {
+                return patternID == (int)MsbtEnums.WordDataPatternID.Str;
             }
 
             public object Clone()
