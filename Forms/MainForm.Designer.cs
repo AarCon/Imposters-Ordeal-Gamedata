@@ -225,6 +225,9 @@ namespace ImpostersOrdeal
             checkBox56 = new System.Windows.Forms.CheckBox();
             checkBox55 = new System.Windows.Forms.CheckBox();
             groupBox27 = new System.Windows.Forms.GroupBox();
+            itemDistributionControl24 = new ItemDistributionControl();
+            itemDistributionControl23 = new ItemDistributionControl();
+            checkBox65 = new System.Windows.Forms.CheckBox();
             itemDistributionControl22 = new ItemDistributionControl();
             checkBox64 = new System.Windows.Forms.CheckBox();
             itemDistributionControl21 = new ItemDistributionControl();
@@ -2566,6 +2569,9 @@ namespace ImpostersOrdeal
             // 
             // groupBox27
             // 
+            groupBox27.Controls.Add(itemDistributionControl24);
+            groupBox27.Controls.Add(itemDistributionControl23);
+            groupBox27.Controls.Add(checkBox65);
             groupBox27.Controls.Add(itemDistributionControl22);
             groupBox27.Controls.Add(checkBox64);
             groupBox27.Controls.Add(itemDistributionControl21);
@@ -2581,9 +2587,41 @@ namespace ImpostersOrdeal
             groupBox27.TabStop = false;
             groupBox27.Text = "Scripts";
             // 
+            // itemDistributionControl24
+            // 
+            itemDistributionControl24.Location = new System.Drawing.Point(5, 219);
+            itemDistributionControl24.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
+            itemDistributionControl24.Name = "itemDistributionControl24";
+            itemDistributionControl24.Size = new System.Drawing.Size(151, 22);
+            itemDistributionControl24.TabIndex = 11;
+            itemDistributionControl24.Text = "Received Pokemon";
+            itemDistributionControl24.UseVisualStyleBackColor = true;
+            itemDistributionControl24.Click += OpenItemDistributionForm;
+            // 
+            // itemDistributionControl23
+            // 
+            itemDistributionControl23.Location = new System.Drawing.Point(5, 193);
+            itemDistributionControl23.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
+            itemDistributionControl23.Name = "itemDistributionControl23";
+            itemDistributionControl23.Size = new System.Drawing.Size(151, 22);
+            itemDistributionControl23.TabIndex = 10;
+            itemDistributionControl23.Text = "Trade Pokemon";
+            itemDistributionControl23.UseVisualStyleBackColor = true;
+            itemDistributionControl23.Click += OpenItemDistributionForm;
+            // 
+            // checkBox65
+            // 
+            checkBox65.AutoSize = true;
+            checkBox65.Location = new System.Drawing.Point(5, 169);
+            checkBox65.Name = "checkBox65";
+            checkBox65.Size = new System.Drawing.Size(156, 19);
+            checkBox65.TabIndex = 9;
+            checkBox65.Text = "Random Trade Pokemon";
+            checkBox65.UseVisualStyleBackColor = true;
+            // 
             // itemDistributionControl22
             // 
-            itemDistributionControl22.Location = new System.Drawing.Point(6, 141);
+            itemDistributionControl22.Location = new System.Drawing.Point(5, 142);
             itemDistributionControl22.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
             itemDistributionControl22.Name = "itemDistributionControl22";
             itemDistributionControl22.Size = new System.Drawing.Size(151, 22);
@@ -3209,5 +3247,8 @@ namespace ImpostersOrdeal
         private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel1;
         public System.Windows.Forms.CheckBox checkBox64;
         public ItemDistributionControl itemDistributionControl22;
+        public ItemDistributionControl itemDistributionControl23;
+        public System.Windows.Forms.CheckBox checkBox65;
+        public ItemDistributionControl itemDistributionControl24;
     }
 }

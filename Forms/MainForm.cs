@@ -78,6 +78,8 @@ namespace ImpostersOrdeal
             public (IDistribution[], List<string>, int) scriptedPokemon;
             public (IDistribution[], List<string>, int) scriptedItems;
             public (IDistribution[], List<string>, int) hiddenItems;
+            public (IDistribution[], List<string>, int) tradePokemon;
+            public (IDistribution[], List<string>, int) receivedPokemon;
             public double levelCoefficient;
 
             public IDistribution evolutionLogicTypingCorrelationDistribution;
@@ -221,6 +223,8 @@ namespace ImpostersOrdeal
             itemDistributionControl20.Initialize(rsc.scriptedPokemon);
             itemDistributionControl21.Initialize(rsc.scriptedItems);
             itemDistributionControl22.Initialize(rsc.hiddenItems);
+            itemDistributionControl23.Initialize(rsc.tradePokemon);
+            itemDistributionControl24.Initialize(rsc.receivedPokemon);
             numericUpDown8.Value = (decimal)rsc.levelCoefficient;
             this.rsc = rsc;
 

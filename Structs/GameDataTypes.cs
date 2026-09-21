@@ -19,6 +19,82 @@ namespace ImpostersOrdeal
             public List<string> strList;
         }
 
+        public class EvFlowGraph
+        {
+            // label -> labels this label points to
+            public Dictionary<string, HashSet<string>> Forward { get; } = new();
+
+            // label -> labels that point to this label
+            public Dictionary<string, HashSet<string>> Backward { get; } = new();
+
+            public void AddLabel(string label)
+            {
+                if (string.IsNullOrEmpty(label))
+                    return;
+
+                if (!Forward.ContainsKey(label))
+                    Forward[label] = new HashSet<string>();
+
+                if (!Backward.ContainsKey(label))
+                    Backward[label] = new HashSet<string>();
+            }
+
+            public void AddConnection(string from, string to)
+            {
+                if (string.IsNullOrEmpty(from) || string.IsNullOrEmpty(to))
+                    return;
+
+                AddLabel(from);
+                AddLabel(to);
+
+                Forward[from].Add(to);
+                Backward[to].Add(from);
+            }
+
+            /// <summary>
+            /// Gets every message/script label belonging to the same flow
+            /// as the supplied starting label.
+            ///
+            /// Traverses both forward and backward, allowing the search to
+            /// begin anywhere in the flow.
+            /// </summary>
+            public List<string> GetFlow(string startLabel)
+            {
+                if (string.IsNullOrEmpty(startLabel))
+                    return new List<string>();
+
+                if (!Forward.ContainsKey(startLabel))
+                    return new List<string>();
+
+                HashSet<string> visited = new();
+                Queue<string> queue = new();
+
+                visited.Add(startLabel);
+                queue.Enqueue(startLabel);
+
+                while (queue.Count > 0)
+                {
+                    string current = queue.Dequeue();
+
+                    // Follow forward connections.
+                    foreach (string next in Forward[current])
+                    {
+                        if (visited.Add(next))
+                            queue.Enqueue(next);
+                    }
+
+                    // Follow backward connections.
+                    foreach (string previous in Backward[current])
+                    {
+                        if (visited.Add(previous))
+                            queue.Enqueue(previous);
+                    }
+                }
+
+                return visited.ToList();
+            }
+        }
+
         public class Script
         {
             public string evLabel;
@@ -578,6 +654,23 @@ namespace ImpostersOrdeal
             {
                 return label != "";
             }
+        }
+
+        public class TradePokemon
+        {
+            public int target;
+            public string nameLabel;
+            public int trainerId;
+            public int monsNo;
+            public string nicknameLabel;
+            public int level;
+            public int natureID; // aka seikaku
+            public int abilityID; // aka tokusei
+            public int itemNo;
+            public int rand;
+            public int sex;
+            public int language;
+            public List<int> moves = new();
         }
 
         public class EncounterTableFile

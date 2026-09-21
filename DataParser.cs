@@ -1,6 +1,7 @@
 ﻿using AssetsTools.NET;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -39,6 +40,7 @@ namespace ImpostersOrdeal
                 Task.Run(() => ParseGrowthRates()),
                 Task.Run(() => ParseItems()),
                 Task.Run(() => ParsePickupItems()),
+                Task.Run(() => ParseTradePokemon()),
                 Task.Run(() => ParseShopTables()),
                 Task.Run(() => ParseMoves()),
                 Task.Run(() => ParseTMs()),
@@ -1074,6 +1076,7 @@ namespace ImpostersOrdeal
             gameData.uiZukanDisplay = new();
             gameData.uiZukanCompareHeights = new();
             gameData.uiSearchPokeIconSex = new();
+            gameData.uiBoxOpenParam = new();
             gameData.uiDistributionTable = new();
             AssetTypeValueField uiDatabase = (await monoBehaviourCollection[PathEnum.UIMasterdatas]).Find(m => Encoding.Default.GetString(m.children[3].value.value.asString) == "UIDatabase");
             AssetTypeValueField distributionTable = (await monoBehaviourCollection[PathEnum.UIMasterdatas]).Find(m => Encoding.Default.GetString(m.children[3].value.value.asString) == "DistributionTable");
@@ -1176,6 +1179,32 @@ namespace ImpostersOrdeal
                 searchPokeIconSex.sex = searchPokeIconSexes[i]["Sex"].value.value.asInt32;
 
                 gameData.uiSearchPokeIconSex.Add(searchPokeIconSex);
+            }
+
+            AssetTypeValueField[] boxOpenParam = uiDatabase["BoxOpenParam"].children[0].children;
+            for (int i = 0; i < boxOpenParam.Length; i++)
+            {
+                UIMasterdatas.BoxOpenParam param = new();
+
+                try
+                {
+                    // Handle MonsNo array - get the array field and iterate through children
+                    AssetTypeValueField monsNoField = boxOpenParam[i]["MonsNo"].children[0];
+                    param.MonsNo = new int[monsNoField.childrenCount];
+                    for (int j = 0; j < monsNoField.childrenCount; j++)
+                        param.MonsNo[j] = monsNoField.children[j].value.value.asInt32;
+                    param.SelectCount = boxOpenParam[i]["SelectCount"].value.value.asInt32;
+                    param.Level = boxOpenParam[i]["Level"].value.value.asInt32;
+                    param.IsTrade = boxOpenParam[i]["IsTrade"].value.value.asUInt8 != 0;
+                    param.IsEnableParty = boxOpenParam[i]["IsEnableParty"].value.value.asUInt8 != 0;
+                    param.IsEnableDying = boxOpenParam[i]["IsEnableDying"].value.value.asUInt8 != 0;
+
+                    gameData.uiBoxOpenParam.Add(param);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error parsing BoxOpenParam entry {i}: {ex.Message}");
+                }
             }
 
             AssetTypeValueField[] diamondField = distributionTable["Diamond_FieldTable"].children[0].children;
@@ -1550,6 +1579,36 @@ namespace ImpostersOrdeal
         }
 
         /// <summary>
+        ///  Overwrites GlobalData with parsed tradePokemon
+        /// </summary>
+        private static async Task ParseTradePokemon()
+        {
+            gameData.tradePokemon = new();
+            AssetTypeValueField monoBehaviour = (await monoBehaviourCollection[PathEnum.DprMasterdatas]).Find(m => Encoding.Default.GetString(m.children[3].value.value.asString) == "LocalKoukanData");
+
+            AssetTypeValueField[] tradePokemonFields = monoBehaviour.children[4].children[0].children;
+            for (int tradePokemonIdx = 0; tradePokemonIdx < tradePokemonFields.Length; tradePokemonIdx++)
+            {
+                TradePokemon tradePokemon = new();
+                tradePokemon.target = tradePokemonFields[tradePokemonIdx].children[0].value.value.asInt32;
+                tradePokemon.nameLabel = Encoding.Default.GetString(tradePokemonFields[tradePokemonIdx].children[1].value.value.asString);
+                tradePokemon.trainerId = tradePokemonFields[tradePokemonIdx].children[2].value.value.asInt32;
+                tradePokemon.monsNo = tradePokemonFields[tradePokemonIdx].children[3].value.value.asInt32;
+                tradePokemon.nicknameLabel = Encoding.Default.GetString(tradePokemonFields[tradePokemonIdx].children[4].value.value.asString);
+                tradePokemon.level = tradePokemonFields[tradePokemonIdx].children[5].value.value.asInt32;
+                tradePokemon.natureID = tradePokemonFields[tradePokemonIdx].children[6].value.value.asInt32;
+                tradePokemon.abilityID = tradePokemonFields[tradePokemonIdx].children[7].value.value.asInt32;
+                tradePokemon.itemNo = tradePokemonFields[tradePokemonIdx].children[8].value.value.asUInt16;
+                tradePokemon.rand = tradePokemonFields[tradePokemonIdx].children[9].value.value.asInt32;
+                tradePokemon.sex = tradePokemonFields[tradePokemonIdx].children[10].value.value.asUInt8;
+                tradePokemon.language = tradePokemonFields[tradePokemonIdx].children[11].value.value.asInt32;
+                for (int moveIdx = 0; moveIdx < tradePokemonFields[tradePokemonIdx].children[12].children[0].childrenCount; moveIdx++)
+                    tradePokemon.moves.Add(tradePokemonFields[tradePokemonIdx].children[12].children[0].children[moveIdx].value.value.asInt32);
+                gameData.tradePokemon.Add(tradePokemon);
+            }
+        }
+
+        /// <summary>
         ///  Overwrites GlobalData with parsed Items.
         /// </summary>
         private static async Task ParseItems()
@@ -1783,6 +1842,12 @@ namespace ImpostersOrdeal
         private static async Task ParseEvScripts()
         {
             gameData.evScripts = new();
+            gameData.evFlowGraph = new EvFlowGraph();
+
+            // Keep track of every known label as we parse it.
+            HashSet<string> knownLabels = new();
+            List<(string fromLabel, string referencedString)> flowReferences = new();
+
             List<AssetTypeValueField> monoBehaviours = (await monoBehaviourCollection[PathEnum.EvScript]).Where(m => m.children[4].GetName() == "Scripts").ToList();
 
             for (int mIdx = 0; mIdx < monoBehaviours.Count; mIdx++)
@@ -1797,6 +1862,12 @@ namespace ImpostersOrdeal
                 {
                     Script script = new();
                     script.evLabel = Encoding.Default.GetString(scriptFields[scriptIdx].children[0].value.value.asString);
+                    // Start the flowchart process
+                    if (!string.IsNullOrEmpty(script.evLabel))
+                    {
+                        knownLabels.Add(script.evLabel);
+                        gameData.evFlowGraph.AddLabel(script.evLabel);
+                    }
 
                     //Parse Commands
                     script.commands = new();
@@ -1826,6 +1897,18 @@ namespace ImpostersOrdeal
                                 arg.data = ConvertToFloat((int)arg.data);
 
                             command.args.Add(arg);
+
+                            // Add potential Flow references based on the strList
+                            // We verify it later on
+                            if (arg.argType == 5)
+                            {
+                                flowReferences.Add((
+                                    script.evLabel,
+                                    // Temporarily store the string-table
+                                    // index as a string.
+                                    ((int)arg.data).ToString()
+                                ));
+                            }
                         }
 
                         script.commands.Add(command);
@@ -1841,6 +1924,58 @@ namespace ImpostersOrdeal
                     evScript.strList.Add(Encoding.Default.GetString(stringFields[stringIdx].value.value.asString));
 
                 gameData.evScripts.Add(evScript);
+            }
+
+            // Work on making a flowchart that goes through all of the scripts and connects them to each other
+            foreach (EvScript evScript in gameData.evScripts)
+            {
+                if (evScript.scripts == null || evScript.strList == null)
+                    continue;
+
+                foreach (Script script in evScript.scripts)
+                {
+                    if (script.commands == null ||
+                        string.IsNullOrEmpty(script.evLabel))
+                    {
+                        continue;
+                    }
+
+                    foreach (Command command in script.commands)
+                    {
+                        if (command.args == null)
+                            continue;
+
+                        foreach (Argument arg in command.args)
+                        {
+                            if (arg.argType != 5)
+                                continue;
+
+                            int stringIndex = (int)arg.data;
+
+                            if (stringIndex < 0 ||
+                                stringIndex >= evScript.strList.Count)
+                            {
+                                continue;
+                            }
+
+                            string referencedLabel =
+                                evScript.strList[stringIndex];
+
+                            if (string.IsNullOrEmpty(referencedLabel))
+                                continue;
+
+                            // Only connect it if the referenced string is
+                            // actually a known script/message label.
+                            if (!knownLabels.Contains(referencedLabel))
+                                continue;
+
+                            gameData.evFlowGraph.AddConnection(
+                                script.evLabel,
+                                referencedLabel
+                            );
+                        }
+                    }
+                }
             }
         }
 
@@ -3424,6 +3559,34 @@ distributionTable
             }
 
             fileManager.WriteMonoBehaviour(PathEnum.DprMasterdatas, monoBehaviour);
+        }
+
+        /// <summary>
+        ///  Updates loaded bundle with EvScripts.
+        /// </summary>
+        private static void CommitTradePokemon()
+        {
+            AssetTypeValueField monoBehaviour = fileManager.GetMonoBehaviours(PathEnum.DprMasterdatas).Find(m => Encoding.Default.GetString(m.children[3].value.value.asString) == "LocalKoukanData");
+
+            AssetTypeValueField[] tradePokemonFields = monoBehaviour.children[4].children[0].children;
+            for (int tradePokemonIdx = 0; tradePokemonIdx < tradePokemonFields.Length; tradePokemonIdx++)
+            {
+                TradePokemon tradePokemon = gameData.tradePokemon[tradePokemonIdx];
+                tradePokemonFields[tradePokemonIdx].children[0].GetValue().Set(tradePokemon.target);
+                tradePokemonFields[tradePokemonIdx].children[1].GetValue().Set(tradePokemon.nameLabel);
+                tradePokemonFields[tradePokemonIdx].children[2].GetValue().Set(tradePokemon.trainerId);
+                tradePokemonFields[tradePokemonIdx].children[3].GetValue().Set(tradePokemon.monsNo);
+                tradePokemonFields[tradePokemonIdx].children[4].GetValue().Set(tradePokemon.nicknameLabel);
+                tradePokemonFields[tradePokemonIdx].children[5].GetValue().Set(tradePokemon.level);
+                tradePokemonFields[tradePokemonIdx].children[6].GetValue().Set(tradePokemon.natureID);
+                tradePokemonFields[tradePokemonIdx].children[7].GetValue().Set(tradePokemon.abilityID);
+                tradePokemonFields[tradePokemonIdx].children[8].GetValue().Set(tradePokemon.itemNo);
+                tradePokemonFields[tradePokemonIdx].children[9].GetValue().Set(tradePokemon.rand);
+                tradePokemonFields[tradePokemonIdx].children[10].GetValue().Set(tradePokemon.sex);
+                tradePokemonFields[tradePokemonIdx].children[11].GetValue().Set(tradePokemon.language);
+                for (int moveIdx = 0; moveIdx < tradePokemonFields[tradePokemonIdx].children[12].children[0].childrenCount; moveIdx++)
+                    tradePokemonFields[tradePokemonIdx].children[12].children[0].children[moveIdx].GetValue().Set(tradePokemon.moves[moveIdx]);
+            }
         }
 
         /// <summary>

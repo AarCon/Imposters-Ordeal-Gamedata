@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
@@ -17,6 +17,7 @@ namespace ImpostersOrdeal
         public class GameDataSet
         {
             public List<EvScript> evScripts;
+            public EvFlowGraph evFlowGraph;
             public List<MapWarpAsset> mapWarpAssets;
             public List<PickupItem> pickupItems;
             public ShopTables shopTables;
@@ -27,6 +28,8 @@ namespace ImpostersOrdeal
             public EncounterTableFile[] encounterTableFiles;
             public MessageFileSet[] messageFileSets;
             public List<GrowthRate> growthRates;
+            public List<TradePokemon> tradePokemon;
+            public List<TradePokemon> receivedPokemon;
             public List<UgArea> ugAreas;
             public List<UgEncounterFile> ugEncounterFiles;
             public List<UgEncounterLevelSet> ugEncounterLevelSets;
@@ -53,6 +56,7 @@ namespace ImpostersOrdeal
             public List<UIMasterdatas.ZukanDisplay> uiZukanDisplay;
             public List<UIMasterdatas.ZukanCompareHeight> uiZukanCompareHeights;
             public List<UIMasterdatas.SearchPokeIconSex> uiSearchPokeIconSex;
+            public List<UIMasterdatas.BoxOpenParam> uiBoxOpenParam;
             public UIMasterdatas.DistributionTable uiDistributionTable;
             public List<ResultMotion> contestResultMotion;
             public AssetBundleDownloadManifest dprBin;
@@ -78,6 +82,8 @@ namespace ImpostersOrdeal
                 EncounterTableFiles,
                 MessageFileSets,
                 GrowthRates,
+                TradePokemon,
+                RecevedPokemon,
                 UgAreas,
                 UgEncounterFiles,
                 UgEncounterLevelSets,

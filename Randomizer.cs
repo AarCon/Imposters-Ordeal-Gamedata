@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -119,6 +120,8 @@ namespace ImpostersOrdeal
                 RandomizeScriptedItems(m.itemDistributionControl21.Get());
             if (m.checkBox64.Checked)
                 RandomizeHiddenItems(m.itemDistributionControl22.Get());
+            if (m.checkBox65.Checked)
+                RandomizeTradePokemon(m.itemDistributionControl23.Get(), m.itemDistributionControl24.Get());
             if (m.checkBox55.Checked)
                 RandomizeText(m.checkBox56.Checked);
 
@@ -386,6 +389,124 @@ namespace ImpostersOrdeal
                         }
 
             gameData.SetModified(GameDataSet.DataField.EvScripts);
+        }
+
+        private void RandomizeTradePokemon(IDistribution tradeDistribution, IDistribution receivedDistribution)
+        {
+            foreach (TradePokemon tradePokemon in gameData.tradePokemon)
+            {
+                int tradePokemonIndex = gameData.tradePokemon.IndexOf(tradePokemon);
+
+                // Store the old values so we can update dialogue later
+                int oldReceivedMonsNo = tradePokemon.monsNo;
+                int oldTradeMonsNo = tradePokemon.target;
+
+                // Generate the new Pokémon for this trade
+                int newTradeMonsNo = tradeDistribution.Next(tradePokemon.target);
+                int newReceivedMonsNo = receivedDistribution.Next(tradePokemon.monsNo);
+
+                // Define the new pokemon for the UIDatabase
+                // This will just have it highlight a different pokemon in the box,
+                // but the actual trade will still be the same pokemon
+                // We only want to edit the UIDatabase entries for trades, nothing else
+
+                foreach (EvScript evScript in gameData.evScripts)
+                    foreach (Script script in evScript.scripts)
+                    {
+                        int evScriptIndex = evScript.scripts.IndexOf(script);
+                        // Check for the _LOCALKOUKAN_APPLY to see if the script is for a trade.
+                        // We're ignoring the argType of 2 because that is for a work
+                        // this also happens to be the ditto for starter trade which IO doesn't (can't?) yet support
+                        Command tradeCommand = script.commands.FirstOrDefault(command =>
+                            command.cmdType == 1084 &&
+                            command.args.Count > 0 &&
+                            command.args[0].argType != 2 &&
+                            (int)command.args[0].data == tradePokemonIndex
+                        );
+
+                        if (tradeCommand == null)
+                            continue;
+                        float paramIndex = -1;
+
+                        foreach (Command command in script.commands)
+                        {
+                            // Find the _IFVAL_CALL that is checking the monsNo for this trade and change it to the new monsNo
+                            if (command.cmdType == 33)
+                            {
+                                command.args[2].data = newTradeMonsNo;
+                            }
+                            // Grab the _POKELIST_SET_PROC command that has the uiBoxParam index for this trade and store it for later
+                            if (command.cmdType == 264)
+                            {
+                                paramIndex = command.args[0].data;
+                            }
+                        }
+
+                        // Only change these once we know that it corresponds to a valid trade.
+                        tradePokemon.monsNo = newReceivedMonsNo;
+                        tradePokemon.target = newTradeMonsNo;
+
+                        // Update the pokemon for the corresponding trade's UIDatabase entry if it has one
+                        // This will just have it highlight a different pokemon in the box,
+                        // but the actual trade will still be the same pokemon
+                        foreach (UIMasterdatas.BoxOpenParam param in gameData.uiBoxOpenParam)
+                        {
+                            // We only want to edit the UIDatabase entries for trades, nothing else
+                            if (!param.IsTrade || param.MonsNo.Length == 0)
+                                continue;
+
+                            if (paramIndex != gameData.uiBoxOpenParam.IndexOf(param))
+                                continue;
+
+                            param.MonsNo[0] = newTradeMonsNo;
+                            break;
+                        }
+
+                        // Grabs the full flow of the contained script.
+                        // If it finds any text that has the old mons name,
+                        // it will replace it with the new mons name
+                        List<string> flow = gameData.evFlowGraph.GetFlow(script.evLabel);
+                        foreach (EvScript flowEvScript in gameData.evScripts)
+                            foreach(Script flowScript in flowEvScript.scripts)
+                            {
+                                if (!flow.Contains(flowScript.evLabel))
+                                    continue;
+
+                                foreach (Command flowCommand in flowScript.commands)
+                                {
+                                    // Look for _TALKMSG or _TALK_KEY_WAIT that has the names of the pokemon that we're trading and receiving
+                                    if (flowCommand.cmdType == 70 || flowCommand.cmdType == 83)
+                                    {
+                                        string[] messageLabelCombined = flowEvScript.strList[(int)flowCommand.args[0].data].Split("%");
+                                        string messageFile = messageLabelCombined[0];
+                                        string messageLabel = messageLabelCombined[1];
+
+                                        foreach (MessageFileSet messageFileSet in gameData.messageFileSets)
+                                        {
+                                            foreach (LabelData labelData in messageFileSet.GetStrings())
+                                            {
+                                                // Checks the second messageLabel that we found
+                                                if (labelData.labelName == messageLabel)
+                                                {
+                                                    string messageText = labelData.GetMacroString();
+                                                    if (messageText.Contains(gameData.personalEntries[oldTradeMonsNo].GetName()))
+                                                        messageText = messageText.Replace(gameData.personalEntries[oldTradeMonsNo].GetName(), gameData.personalEntries[newTradeMonsNo].GetName());
+                                                    if (messageText.Contains(gameData.personalEntries[oldReceivedMonsNo].GetName()))
+                                                        messageText = messageText.Replace(gameData.personalEntries[oldReceivedMonsNo].GetName(), gameData.personalEntries[newReceivedMonsNo].GetName());
+                                                    labelData.SetMacroString(messageText);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                    }
+            }
+
+            gameData.SetModified(GameDataSet.DataField.UIMasterdatas);
+            gameData.SetModified(GameDataSet.DataField.EvScripts);
+            gameData.SetModified(GameDataSet.DataField.TradePokemon);
+            gameData.SetModified(GameDataSet.DataField.MessageFileSets);
         }
 
         private void RandomizeTrainerPokemonEVs(IDistribution distribution)

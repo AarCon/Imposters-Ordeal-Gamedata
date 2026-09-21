@@ -156,5 +156,35 @@ namespace ImpostersOrdeal
                 honeyTree = (int[])honeyTree.Clone()
             };
         }
+
+		public class BoxOpenParam : ICloneable, IComparable<BoxOpenParam>
+		{
+			public int[] MonsNo;
+			public int SelectCount;
+			public int Level;
+			public bool IsTrade;
+			public bool IsEnableParty;
+			public bool IsEnableDying;
+
+			public object Clone()
+			{
+				return new BoxOpenParam()
+				{
+					MonsNo = (int[])MonsNo.Clone(),
+					SelectCount = SelectCount,
+					Level = Level,
+					IsTrade = IsTrade,
+					IsEnableParty = IsEnableParty,
+					IsEnableDying = IsEnableDying
+				};
+			}
+
+			public int CompareTo(BoxOpenParam other)
+			{
+				if (SelectCount == other.SelectCount)
+					return Level.CompareTo(other.Level);
+				return SelectCount.CompareTo(other.SelectCount);
+			}
+		}
 	}
 }
