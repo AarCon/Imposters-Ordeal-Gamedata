@@ -1,11 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using static ImpostersOrdeal.GlobalData;
 using static ImpostersOrdeal.Distributions;
 using static ImpostersOrdeal.GameDataTypes;
+using static ImpostersOrdeal.GlobalData;
 
 namespace ImpostersOrdeal
 {
@@ -437,8 +438,93 @@ namespace ImpostersOrdeal
             randomizerSetupConfig.scriptedItems = GetItemDistributionConfig(commands.Where(c => c.cmdType == 187 && c.args[0].argType == 1 && gameData.items[(int)c.args[0].data].IsPurchasable()).ToList(), c => (int)c.args[0].data, gameData.items.Select(o => (INamedEntity)o).ToList());
 
             //Scripted Hidden Items
-            List<Command> hiddenItemCommands = gameData.evScripts.Where(e => e.mName == "hide_item").SelectMany(e => e.scripts.SelectMany(s => s.commands)).ToList();
-            randomizerSetupConfig.hiddenItems = GetItemDistributionConfig(hiddenItemCommands.Where(c => c.cmdType == 60 && c.args[0].argType == 2 && gameData.items[(int)c.args[1].data].IsPurchasable()).ToList(), c => (int)c.args[1].data, gameData.items.Select(o => (INamedEntity)o).ToList());
+
+            List<Command> hiddenItemCommands = gameData.evScripts
+                .Where(e => e.mName == "hide_item")
+                .SelectMany(e => e.scripts.SelectMany(s => s.commands))
+                .ToList();
+
+            List<Command> validHiddenItemCommands = new List<Command>();
+
+            for (int i = 0; i < hiddenItemCommands.Count; i++)
+            {
+                Command c = hiddenItemCommands[i];
+
+                // We only care about command type 60
+                if (c.cmdType != 60)
+                {
+                    continue;
+                }
+
+                // Check args[0]
+                if (c.args == null || c.args.Count <= 0)
+                {
+                    continue;
+                }
+
+                if (c.args[0].data != 234)
+                {
+                    continue;
+                }
+
+                // Check args[1]
+                if (c.args.Count <= 1)
+                {
+                    continue;
+                }
+
+                int itemIndex;
+
+                try
+                {
+                    itemIndex = (int)c.args[1].data;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine(
+                        $"[hide_item] Command {i}: Failed to cast args[1].data to int. " +
+                        $"data={c.args[1].data}, exception={ex}"
+                    );
+                    continue;
+                }
+                // Check the item index before accessing gameData.items[]
+                if (itemIndex < 0 || itemIndex >= gameData.items.Count)
+                {
+                    continue;
+                }
+
+                if (!gameData.items[itemIndex].IsPurchasable())
+                {
+                    Debug.WriteLine(
+                        $"[hide_item] Command {i}: Skipping because item {itemIndex} is not purchasable."
+                    );
+                    continue;
+                }
+
+                validHiddenItemCommands.Add(c);
+            }
+
+            randomizerSetupConfig.hiddenItems = GetItemDistributionConfig(
+                validHiddenItemCommands,
+                c => (int)c.args[1].data,
+                gameData.items.Select(o => (INamedEntity)o).ToList()
+            );
+
+            //Trade Pokémon
+            instances = new int[gameData.dexEntries.Count];
+            entities = gameData.dexEntries.Select(o => (INamedEntity)o).ToList();
+            for (int i = 0; i < gameData.tradePokemon.Count; i++)
+                if (gameData.tradePokemon[i].target > 0)
+                    instances[gameData.tradePokemon[i].target]++;
+            randomizerSetupConfig.tradePokemon = ToItemDistributionConfig(instances, entities);
+
+            //Received Pokémon
+            instances = new int[gameData.dexEntries.Count];
+            entities = gameData.dexEntries.Select(o => (INamedEntity)o).ToList();
+            for (int i = 0; i < gameData.tradePokemon.Count; i++)
+                if (gameData.tradePokemon[i].monsNo > 0)
+                    instances[gameData.tradePokemon[i].monsNo]++;
+            randomizerSetupConfig.receivedPokemon = ToItemDistributionConfig(instances, entities);
 
             //Type Matchups
             instances = new int[4];
